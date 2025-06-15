@@ -310,6 +310,9 @@ function updateImportancePreview() {
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    // Get the same importance vector used in the model
+    const importanceVector = SuperpositionModel.computeImportanceVector(inputDim, importanceDecay);
+    
     // Calculate bar width and spacing
     const margin = 10;
     const maxBars = Math.min(inputDim, 50); // Limit display to 50 bars for readability
@@ -318,7 +321,7 @@ function updateImportancePreview() {
     
     // Draw bars
     for (let i = 0; i < maxBars; i++) {
-        const importance = Math.pow(importanceDecay, i);
+        const importance = importanceVector[i];
         const barHeight = importance * (canvas.height - 20);
         
         ctx.fillStyle = `hsl(${210 - i * 3}, 70%, 50%)`;

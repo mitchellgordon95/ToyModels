@@ -13,6 +13,14 @@ class SuperpositionModel {
         this.totalSteps = 0;
     }
     
+    static computeImportanceVector(inputDim, importanceDecay) {
+        const importances = new Array(inputDim);
+        for (let i = 0; i < inputDim; i++) {
+            importances[i] = Math.pow(importanceDecay, i);
+        }
+        return importances;
+    }
+    
     forward(x) {
         let h = Matrix.multiplyVector(this.W, x);
         
@@ -74,15 +82,14 @@ class SuperpositionModel {
     
     generateBatch(batchSize, sparsity, importanceDecay) {
         const batch = [];
+        const importanceVector = SuperpositionModel.computeImportanceVector(this.inputDim, importanceDecay);
         
         for (let i = 0; i < batchSize; i++) {
             const x = Vector.sparse(this.inputDim, sparsity);
             
-            // Apply per-feature importance
-            // Feature 0 has importance 1, and it decays based on importanceDecay parameter
+            // Apply per-feature importance element-wise
             for (let j = 0; j < x.length; j++) {
-                const featureImportance = Math.pow(importanceDecay, j);
-                x[j] *= featureImportance;
+                x[j] *= importanceVector[j];
             }
             
             const norm = Vector.norm(x);
