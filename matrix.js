@@ -134,18 +134,13 @@ class Vector {
     
     static sparse(size, sparsity) {
         const vector = Vector.zeros(size);
-        const numActive = Math.max(1, Math.floor(size * (1 - sparsity)));
-        const indices = [];
+        const featureProbability = 1 - sparsity;  // probability of being active
         
-        for (let i = 0; i < size; i++) indices.push(i);
-        
-        for (let i = indices.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [indices[i], indices[j]] = [indices[j], indices[i]];
-        }
-        
-        for (let i = 0; i < numActive; i++) {
-            vector[indices[i]] = Math.random();
+        // Bernoulli sampling: each feature independently decides to be active
+        for (let i = 0; i < size; i++) {
+            if (Math.random() <= featureProbability) {
+                vector[i] = Math.random();
+            }
         }
         
         return vector;
@@ -182,5 +177,9 @@ class Vector {
     
     static l1Norm(vector) {
         return vector.reduce((sum, val) => sum + Math.abs(val), 0);
+    }
+    
+    static elementWise(a, b) {
+        return a.map((val, i) => val * b[i]);
     }
 }

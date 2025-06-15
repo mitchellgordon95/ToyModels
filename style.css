@@ -168,6 +168,51 @@ h3 {
     margin-top: 10px;
 }
 
+.more-settings {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.more-settings summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #34495e;
+    padding: 10px 0;
+    user-select: none;
+}
+
+.more-settings summary:hover {
+    color: #2c3e50;
+}
+
+.advanced-settings {
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.advanced-settings .control-group {
+    margin-bottom: 12px;
+}
+
+.advanced-settings input[type="number"],
+.advanced-settings select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.advanced-settings .help-text {
+    margin-top: 15px;
+    font-size: 13px;
+    color: #666;
+    font-style: italic;
+}
+
 .visualization-panel {
     background: white;
     padding: 25px;

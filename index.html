@@ -15,14 +15,14 @@
             
             <div class="control-group">
                 <label for="input-dim">Input Dimension (n):</label>
-                <input type="number" id="input-dim" min="2" max="100" value="10">
-                <span class="value-display" id="input-dim-display">10</span>
+                <input type="number" id="input-dim" min="2" max="100" value="30">
+                <span class="value-display" id="input-dim-display">30</span>
             </div>
             
             <div class="control-group">
                 <label for="hidden-dim">Hidden Dimension (m):</label>
-                <input type="number" id="hidden-dim" min="1" max="100" value="5">
-                <span class="value-display" id="hidden-dim-display">5</span>
+                <input type="number" id="hidden-dim" min="1" max="100" value="15">
+                <span class="value-display" id="hidden-dim-display">15</span>
             </div>
             
             <div class="control-group">
@@ -33,13 +33,13 @@
             
             <div class="control-group">
                 <label for="importance">Feature Importance Decay:</label>
-                <input type="range" id="importance" min="0" max="1" step="0.01" value="0.5">
-                <span class="value-display" id="importance-display">0.50</span>
+                <input type="range" id="importance" min="0" max="1" step="0.01" value="0.9">
+                <span class="value-display" id="importance-display">0.90</span>
                 <div class="help-text">Controls how quickly importance decreases from feature 1 to n</div>
             </div>
             
             <div class="control-group">
-                <label>Activation Mode:</label>
+                <label>Output Activation Mode:</label>
                 <div class="radio-group">
                     <input type="radio" id="linear-mode" name="activation" value="linear" checked>
                     <label for="linear-mode">Linear</label>
@@ -52,6 +52,37 @@
                 <button id="train-btn" class="primary-btn">Train Model</button>
                 <button id="stop-btn" class="secondary-btn" disabled>Stop Training</button>
             </div>
+            
+            <details class="more-settings">
+                <summary>More Settings</summary>
+                <div class="advanced-settings">
+                    <div class="control-group">
+                        <label for="learning-rate">Learning Rate:</label>
+                        <input type="number" id="learning-rate" min="0.0001" max="0.1" step="0.0001" value="0.001">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="batch-size">Batch Size:</label>
+                        <input type="number" id="batch-size" min="1" max="2048" value="1024">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="epochs">Epochs:</label>
+                        <input type="number" id="epochs" min="100" max="20000" value="5000">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="lr-schedule">Learning Rate Schedule:</label>
+                        <select id="lr-schedule">
+                            <option value="constant">Constant</option>
+                            <option value="linear" selected>Linear Decay</option>
+                            <option value="cosine">Cosine Decay</option>
+                        </select>
+                    </div>
+                    
+                    <div class="help-text">Optimizer: AdamW (β₁=0.9, β₂=0.999, weight decay=0.0001)</div>
+                </div>
+            </details>
             
             <div class="training-status">
                 <h3>Training Status</h3>

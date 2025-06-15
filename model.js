@@ -8,6 +8,21 @@ class SuperpositionModel {
         const scale = Math.sqrt(2.0 / (inputDim + hiddenDim));
         this.W = Matrix.randomNormal(hiddenDim, inputDim, 0, scale);
         
+        // Initialize bias term (b_final)
+        this.bias = new Array(inputDim).fill(0);
+        
+        // Initialize AdamW optimizer state
+        this.adamW = {
+            mW: Matrix.zeros(hiddenDim, inputDim),
+            vW: Matrix.zeros(hiddenDim, inputDim),
+            mBias: new Array(inputDim).fill(0),
+            vBias: new Array(inputDim).fill(0),
+            beta1: 0.9,
+            beta2: 0.999,
+            epsilon: 1e-8,
+            t: 0
+        };
+        
         this.lossHistory = [];
         this.isTraining = false;
         this.totalSteps = 0;
@@ -22,48 +37,58 @@ class SuperpositionModel {
     }
     
     forward(x) {
-        let h = Matrix.multiplyVector(this.W, x);
+        // Encoder: x -> W -> h (no ReLU on hidden layer)
+        const h = Matrix.multiplyVector(this.W, x);
         
-        if (this.activation === 'relu') {
-            h = Vector.relu(h);
-        }
-        
+        // Decoder: h -> W^T -> x_reconstructed
         const W_T = Matrix.transpose(this.W);
-        const x_reconstructed = Matrix.multiplyVector(W_T, h);
+        let x_reconstructed = Matrix.multiplyVector(W_T, h);
+        
+        // Add bias term
+        x_reconstructed = Vector.add(x_reconstructed, this.bias);
+        
+        // Apply ReLU to output (matching the paper)
+        x_reconstructed = Vector.relu(x_reconstructed);
         
         return { h, x_reconstructed };
     }
     
-    computeLoss(x, x_reconstructed, h, sparsityWeight = 0.1) {
-        const reconstructionLoss = Vector.mse(x, x_reconstructed);
-        
-        const sparsityLoss = Vector.l1Norm(h) / h.length;
-        
-        const totalLoss = reconstructionLoss + sparsityWeight * sparsityLoss;
+    computeLoss(x, x_reconstructed, h, importanceVector) {
+        // Compute importance-weighted MSE, matching the paper
+        let weightedSquaredError = 0;
+        for (let i = 0; i < x.length; i++) {
+            const error = x[i] - x_reconstructed[i];
+            weightedSquaredError += importanceVector[i] * error * error;
+        }
+        const totalLoss = weightedSquaredError / x.length;
         
         return {
             total: totalLoss,
-            reconstruction: reconstructionLoss,
-            sparsity: sparsityLoss
+            reconstruction: totalLoss,
+            sparsity: 0
         };
     }
     
-    backward(x, learningRate = 0.01, sparsityWeight = 0.1) {
+    backward(x, learningRate = 0.01, importanceVector) {
         const { h, x_reconstructed } = this.forward(x);
         
-        const loss = this.computeLoss(x, x_reconstructed, h, sparsityWeight);
+        const loss = this.computeLoss(x, x_reconstructed, h, importanceVector);
         
-        const reconstruction_grad = Vector.scale(Vector.subtract(x_reconstructed, x), 2 / x.length);
+        // Gradient through ReLU on output
+        const relu_grad = x_reconstructed.map(val => val > 0 ? 1 : 0);
+        
+        // Importance-weighted gradient
+        const reconstruction_grad = [];
+        for (let i = 0; i < x.length; i++) {
+            reconstruction_grad[i] = (2 * importanceVector[i] * (x_reconstructed[i] - x[i]) * relu_grad[i]) / x.length;
+        }
+        
+        // Update bias gradient
+        const bias_grad = reconstruction_grad;
+        this.bias = Vector.subtract(this.bias, Vector.scale(bias_grad, learningRate));
         
         const W_T = Matrix.transpose(this.W);
         let dL_dh = Matrix.multiplyVector(W_T, reconstruction_grad);
-        
-        const sparsity_grad = h.map(val => sparsityWeight * Math.sign(val) / h.length);
-        dL_dh = Vector.add(dL_dh, sparsity_grad);
-        
-        if (this.activation === 'relu') {
-            dL_dh = dL_dh.map((grad, i) => h[i] > 0 ? grad : 0);
-        }
         
         const dL_dW = Matrix.zeros(this.hiddenDim, this.inputDim);
         for (let i = 0; i < this.hiddenDim; i++) {
@@ -72,26 +97,52 @@ class SuperpositionModel {
             }
         }
         
-        this.W = Matrix.subtract(this.W, Matrix.scale(dL_dW, learningRate));
+        // AdamW update for weights
+        this.adamW.t++;
+        const t = this.adamW.t;
+        const beta1 = this.adamW.beta1;
+        const beta2 = this.adamW.beta2;
+        const epsilon = this.adamW.epsilon;
+        const weightDecay = 0.0001;
         
-        // Optional: Add weight decay for regularization
-        // this.W = Matrix.scale(this.W, 1 - learningRate * 0.0001);
+        // Update momentum and variance for W
+        for (let i = 0; i < this.hiddenDim; i++) {
+            for (let j = 0; j < this.inputDim; j++) {
+                this.adamW.mW[i][j] = beta1 * this.adamW.mW[i][j] + (1 - beta1) * dL_dW[i][j];
+                this.adamW.vW[i][j] = beta2 * this.adamW.vW[i][j] + (1 - beta2) * dL_dW[i][j] * dL_dW[i][j];
+                
+                // Bias correction
+                const mHat = this.adamW.mW[i][j] / (1 - Math.pow(beta1, t));
+                const vHat = this.adamW.vW[i][j] / (1 - Math.pow(beta2, t));
+                
+                // AdamW update with weight decay
+                this.W[i][j] = this.W[i][j] - learningRate * (mHat / (Math.sqrt(vHat) + epsilon) + weightDecay * this.W[i][j]);
+            }
+        }
+        
+        // Update momentum and variance for bias
+        for (let i = 0; i < this.inputDim; i++) {
+            this.adamW.mBias[i] = beta1 * this.adamW.mBias[i] + (1 - beta1) * bias_grad[i];
+            this.adamW.vBias[i] = beta2 * this.adamW.vBias[i] + (1 - beta2) * bias_grad[i] * bias_grad[i];
+            
+            // Bias correction
+            const mHat = this.adamW.mBias[i] / (1 - Math.pow(beta1, t));
+            const vHat = this.adamW.vBias[i] / (1 - Math.pow(beta2, t));
+            
+            // Adam update for bias (no weight decay on bias)
+            this.bias[i] = this.bias[i] - learningRate * (mHat / (Math.sqrt(vHat) + epsilon));
+        }
         
         return loss;
     }
     
     generateBatch(batchSize, sparsity, importanceDecay) {
         const batch = [];
-        const importanceVector = SuperpositionModel.computeImportanceVector(this.inputDim, importanceDecay);
         
         for (let i = 0; i < batchSize; i++) {
             const x = Vector.sparse(this.inputDim, sparsity);
             
-            // Apply per-feature importance element-wise
-            for (let j = 0; j < x.length; j++) {
-                x[j] *= importanceVector[j];
-            }
-            
+            // Don't multiply by importance - that goes in the loss
             const norm = Vector.norm(x);
             if (norm > 0) {
                 for (let j = 0; j < x.length; j++) {
@@ -105,11 +156,11 @@ class SuperpositionModel {
         return batch;
     }
     
-    trainStep(batch, learningRate, sparsityWeight) {
+    trainStep(batch, learningRate, importanceVector) {
         let totalLoss = 0;
         
         for (const x of batch) {
-            const loss = this.backward(x, learningRate, sparsityWeight);
+            const loss = this.backward(x, learningRate, importanceVector);
             totalLoss += loss.total;
             this.totalSteps++;
         }
@@ -120,12 +171,11 @@ class SuperpositionModel {
     async train(params = {}) {
         const {
             epochs = 1000,
-            batchSize = 32,
-            initialLearningRate = 0.1,
-            minLearningRate = 0.001,
-            decayRate = 0.995,
+            batchSize = 1024,
+            learningRate = 1e-3,
+            lrSchedule = 'constant',  // 'constant', 'linear', or 'cosine'
             sparsity = 0.1,
-            sparsityWeight = 0.1,
+            sparsityWeight = 0.0,
             importance = 1.0,
             convergenceThreshold = 1e-5,
             callback = null
@@ -137,17 +187,21 @@ class SuperpositionModel {
         
         let previousLoss = Infinity;
         let convergenceCount = 0;
-        let currentLearningRate = initialLearningRate;
+        let currentLearningRate = learningRate;
         
         for (let epoch = 0; epoch < epochs && this.isTraining; epoch++) {
-            // Exponential decay of learning rate
-            currentLearningRate = Math.max(
-                minLearningRate,
-                initialLearningRate * Math.pow(decayRate, epoch)
-            );
+            // Learning rate scheduling
+            if (lrSchedule === 'linear') {
+                currentLearningRate = learningRate * (1 - epoch / epochs);
+            } else if (lrSchedule === 'cosine') {
+                currentLearningRate = learningRate * Math.cos(0.5 * Math.PI * epoch / (epochs - 1));
+            } else {
+                currentLearningRate = learningRate;  // constant
+            }
             
             const batch = this.generateBatch(batchSize, sparsity, importance);
-            const loss = this.trainStep(batch, currentLearningRate, sparsityWeight);
+            const importanceVector = SuperpositionModel.computeImportanceVector(this.inputDim, importance);
+            const loss = this.trainStep(batch, currentLearningRate, importanceVector);
             
             this.lossHistory.push(loss);
             

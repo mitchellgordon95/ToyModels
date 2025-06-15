@@ -72,16 +72,20 @@ async function startTraining() {
     const sparsity = parseFloat(document.getElementById('sparsity').value);
     const importance = parseFloat(document.getElementById('importance').value);
     
+    // Get values from More Settings
+    const learningRate = parseFloat(document.getElementById('learning-rate').value);
+    const batchSize = parseInt(document.getElementById('batch-size').value);
+    const epochs = parseInt(document.getElementById('epochs').value);
+    const lrSchedule = document.getElementById('lr-schedule').value;
+    
     updateStatus('Training...');
     
     const trainingParams = {
-        epochs: 5000,
-        batchSize: 32,
-        initialLearningRate: 0.1,
-        minLearningRate: 0.001,
-        decayRate: 0.995,
+        epochs: epochs,
+        batchSize: batchSize,
+        learningRate: learningRate,
+        lrSchedule: lrSchedule,
         sparsity: sparsity,
-        sparsityWeight: 0.1,
         importance: importance,
         convergenceThreshold: 1e-5,
         callback: updateTrainingProgress
@@ -141,7 +145,8 @@ function updateStatus(message) {
 
 function disableParameterControls(disabled) {
     const controls = [
-        'input-dim', 'hidden-dim', 'linear-mode', 'relu-mode'
+        'input-dim', 'hidden-dim', 'linear-mode', 'relu-mode',
+        'learning-rate', 'batch-size', 'epochs', 'lr-schedule'
     ];
     
     controls.forEach(id => {
