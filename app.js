@@ -74,11 +74,13 @@ async function startTraining() {
     const trainingParams = {
         epochs: 5000,
         batchSize: 32,
-        learningRate: 0.05,
+        initialLearningRate: 0.1,
+        minLearningRate: 0.001,
+        decayRate: 0.995,
         sparsity: sparsity,
         sparsityWeight: 0.1,
         importance: importance,
-        convergenceThreshold: 1e-6,
+        convergenceThreshold: 1e-5,
         callback: updateTrainingProgress
     };
     
@@ -115,9 +117,14 @@ function stopTraining() {
     updateStatus('Training stopped');
 }
 
-function updateTrainingProgress({ epoch, loss, converged }) {
+function updateTrainingProgress({ epoch, loss, learningRate, converged }) {
     document.getElementById('epoch').textContent = epoch;
     document.getElementById('loss').textContent = loss.toExponential(3);
+    
+    // Update status with learning rate info
+    if (learningRate) {
+        updateStatus(`Training... (LR: ${learningRate.toExponential(2)})`);
+    }
     
     if (epoch % 50 === 0) {
         updateLossPlot();

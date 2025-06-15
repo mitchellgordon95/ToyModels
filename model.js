@@ -4,11 +4,13 @@ class SuperpositionModel {
         this.hiddenDim = hiddenDim;
         this.activation = activation;
         
-        this.W = Matrix.randomNormal(hiddenDim, inputDim, 0, 1 / Math.sqrt(inputDim));
-        this.W = Matrix.normalize(this.W);
+        // Initialize with Xavier/Glorot initialization
+        const scale = Math.sqrt(2.0 / (inputDim + hiddenDim));
+        this.W = Matrix.randomNormal(hiddenDim, inputDim, 0, scale);
         
         this.lossHistory = [];
         this.isTraining = false;
+        this.totalSteps = 0;
     }
     
     forward(x) {
@@ -64,7 +66,8 @@ class SuperpositionModel {
         
         this.W = Matrix.subtract(this.W, Matrix.scale(dL_dW, learningRate));
         
-        this.W = Matrix.normalize(this.W);
+        // Optional: Add weight decay for regularization
+        // this.W = Matrix.scale(this.W, 1 - learningRate * 0.0001);
         
         return loss;
     }
@@ -100,6 +103,7 @@ class SuperpositionModel {
         for (const x of batch) {
             const loss = this.backward(x, learningRate, sparsityWeight);
             totalLoss += loss.total;
+            this.totalSteps++;
         }
         
         return totalLoss / batch.length;
@@ -109,7 +113,9 @@ class SuperpositionModel {
         const {
             epochs = 1000,
             batchSize = 32,
-            learningRate = 0.01,
+            initialLearningRate = 0.1,
+            minLearningRate = 0.001,
+            decayRate = 0.995,
             sparsity = 0.1,
             sparsityWeight = 0.1,
             importance = 1.0,
@@ -119,19 +125,29 @@ class SuperpositionModel {
         
         this.isTraining = true;
         this.lossHistory = [];
+        this.totalSteps = 0;
         
         let previousLoss = Infinity;
         let convergenceCount = 0;
+        let currentLearningRate = initialLearningRate;
         
         for (let epoch = 0; epoch < epochs && this.isTraining; epoch++) {
+            // Exponential decay of learning rate
+            currentLearningRate = Math.max(
+                minLearningRate,
+                initialLearningRate * Math.pow(decayRate, epoch)
+            );
+            
             const batch = this.generateBatch(batchSize, sparsity, importance);
-            const loss = this.trainStep(batch, learningRate, sparsityWeight);
+            const loss = this.trainStep(batch, currentLearningRate, sparsityWeight);
             
             this.lossHistory.push(loss);
             
-            if (Math.abs(loss - previousLoss) < convergenceThreshold) {
+            // Check for convergence
+            const relativeLossChange = Math.abs((loss - previousLoss) / (previousLoss + 1e-8));
+            if (relativeLossChange < convergenceThreshold) {
                 convergenceCount++;
-                if (convergenceCount > 10) {
+                if (convergenceCount > 20) {
                     console.log(`Converged at epoch ${epoch}`);
                     break;
                 }
@@ -145,7 +161,8 @@ class SuperpositionModel {
                 callback({
                     epoch,
                     loss,
-                    converged: convergenceCount > 10
+                    learningRate: currentLearningRate,
+                    converged: convergenceCount > 20
                 });
                 
                 await new Promise(resolve => setTimeout(resolve, 0));
@@ -157,7 +174,7 @@ class SuperpositionModel {
         return {
             finalLoss: previousLoss,
             epochs: this.lossHistory.length,
-            converged: convergenceCount > 10
+            converged: convergenceCount > 20
         };
     }
     
