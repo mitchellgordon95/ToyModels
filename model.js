@@ -72,16 +72,17 @@ class SuperpositionModel {
         return loss;
     }
     
-    generateBatch(batchSize, sparsity, importance) {
+    generateBatch(batchSize, sparsity, importanceDecay) {
         const batch = [];
         
         for (let i = 0; i < batchSize; i++) {
             const x = Vector.sparse(this.inputDim, sparsity);
             
-            if (importance < 1.0) {
-                for (let j = 0; j < x.length; j++) {
-                    x[j] *= Math.pow(j / x.length, 1 - importance);
-                }
+            // Apply per-feature importance
+            // Feature 0 has importance 1, and it decays based on importanceDecay parameter
+            for (let j = 0; j < x.length; j++) {
+                const featureImportance = Math.pow(importanceDecay, j);
+                x[j] *= featureImportance;
             }
             
             const norm = Vector.norm(x);

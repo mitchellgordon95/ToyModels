@@ -21,8 +21,8 @@
             
             <div class="control-group">
                 <label for="hidden-dim">Hidden Dimension (m):</label>
-                <input type="number" id="hidden-dim" min="1" max="100" value="5">
-                <span class="value-display" id="hidden-dim-display">5</span>
+                <input type="number" id="hidden-dim" min="1" max="100" value="10">
+                <span class="value-display" id="hidden-dim-display">10</span>
             </div>
             
             <div class="control-group">
@@ -32,9 +32,10 @@
             </div>
             
             <div class="control-group">
-                <label for="importance">Feature Importance (I):</label>
+                <label for="importance">Feature Importance Decay:</label>
                 <input type="range" id="importance" min="0" max="1" step="0.01" value="0.5">
                 <span class="value-display" id="importance-display">0.50</span>
+                <div class="help-text">Controls how quickly importance decreases from feature 1 to n</div>
             </div>
             
             <div class="control-group">
@@ -57,6 +58,11 @@
                 <div>Epoch: <span id="epoch">0</span></div>
                 <div>Loss: <span id="loss">-</span></div>
                 <div>Status: <span id="status">Ready</span></div>
+            </div>
+            
+            <div class="importance-preview">
+                <h3>Feature Importances</h3>
+                <canvas id="importance-preview-canvas" width="300" height="80"></canvas>
             </div>
         </div>
         

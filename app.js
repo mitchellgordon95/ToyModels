@@ -4,6 +4,7 @@ let isTraining = false;
 document.addEventListener('DOMContentLoaded', () => {
     setupControls();
     initializeModel();
+    updateImportancePreview();
 });
 
 function setupControls() {
@@ -14,12 +15,13 @@ function setupControls() {
     
     inputDimSlider.addEventListener('input', (e) => {
         document.getElementById('input-dim-display').textContent = e.target.value;
-        const hiddenMax = Math.max(1, parseInt(e.target.value) - 1);
+        const hiddenMax = Math.max(1, parseInt(e.target.value));
         hiddenDimSlider.max = hiddenMax;
         if (parseInt(hiddenDimSlider.value) > hiddenMax) {
             hiddenDimSlider.value = hiddenMax;
             document.getElementById('hidden-dim-display').textContent = hiddenMax;
         }
+        updateImportancePreview();
     });
     
     hiddenDimSlider.addEventListener('input', (e) => {
@@ -32,6 +34,7 @@ function setupControls() {
     
     importanceSlider.addEventListener('input', (e) => {
         document.getElementById('importance-display').textContent = parseFloat(e.target.value).toFixed(2);
+        updateImportancePreview();
     });
     
     document.getElementById('train-btn').addEventListener('click', startTraining);
@@ -294,4 +297,52 @@ function updateFinalVisualization() {
     
     const analysis = model.analyzeRepresentation();
     console.log('Model analysis:', analysis);
+}
+
+function updateImportancePreview() {
+    const canvas = document.getElementById('importance-preview-canvas');
+    const ctx = canvas.getContext('2d');
+    const inputDim = parseInt(document.getElementById('input-dim').value);
+    const importanceDecay = parseFloat(document.getElementById('importance').value);
+    
+    canvas.width = canvas.offsetWidth;
+    canvas.height = 80;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Calculate bar width and spacing
+    const margin = 10;
+    const maxBars = Math.min(inputDim, 50); // Limit display to 50 bars for readability
+    const barWidth = Math.max(1, (canvas.width - 2 * margin) / maxBars - 2);
+    const spacing = Math.max(1, (canvas.width - 2 * margin) / maxBars);
+    
+    // Draw bars
+    for (let i = 0; i < maxBars; i++) {
+        const importance = Math.pow(importanceDecay, i);
+        const barHeight = importance * (canvas.height - 20);
+        
+        ctx.fillStyle = `hsl(${210 - i * 3}, 70%, 50%)`;
+        ctx.fillRect(
+            margin + i * spacing,
+            canvas.height - 10 - barHeight,
+            barWidth,
+            barHeight
+        );
+    }
+    
+    // Draw labels
+    ctx.fillStyle = '#666';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    
+    // Label first and last feature
+    ctx.fillText('1', margin + barWidth/2, canvas.height - 1);
+    if (maxBars > 1) {
+        ctx.fillText(maxBars.toString(), margin + (maxBars - 1) * spacing + barWidth/2, canvas.height - 1);
+    }
+    
+    // Show continuation indicator if needed
+    if (inputDim > maxBars) {
+        ctx.fillText(`... (${inputDim} total)`, canvas.width - 40, canvas.height - 1);
+    }
 }
