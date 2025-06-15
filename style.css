@@ -47,6 +47,45 @@ h3 {
     height: fit-content;
 }
 
+.preset-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 25px;
+}
+
+.preset-card {
+    padding: 12px 16px;
+    background-color: rgba(236, 240, 241, 0.3);
+    border: 1px solid rgba(189, 195, 199, 0.3);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.preset-card:hover {
+    background-color: rgba(52, 152, 219, 0.1);
+    border-color: rgba(52, 152, 219, 0.3);
+}
+
+.preset-card.selected {
+    background-color: rgba(52, 152, 219, 0.15);
+    border-color: rgba(52, 152, 219, 0.5);
+}
+
+.preset-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+
+.preset-details {
+    font-size: 12px;
+    color: #7f8c8d;
+    letter-spacing: 0.2px;
+}
+
 .control-group {
     margin-bottom: 20px;
 }

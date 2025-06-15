@@ -1,8 +1,10 @@
 let model = null;
 let isTraining = false;
+let currentPreset = 'linear-sparse';  // Track current preset
 
 document.addEventListener('DOMContentLoaded', () => {
     setupControls();
+    setupPresets();
     initializeModel();
     updateImportancePreview();
 });
@@ -41,6 +43,85 @@ function setupControls() {
     
     [inputDimSlider, hiddenDimSlider].forEach(el => {
         el.addEventListener('change', initializeModel);
+    });
+}
+
+function setupPresets() {
+    const presets = {
+        'linear-sparse': {
+            inputDim: 20,
+            hiddenDim: 5,
+            importance: 0.7,
+            sparsity: '0.999',  // 1-S = 0.001
+            activation: 'linear'
+        },
+        'relu-dense': {
+            inputDim: 20,
+            hiddenDim: 5,
+            importance: 0.7,
+            sparsity: '0',  // 1-S = 1
+            activation: 'relu'
+        },
+        'relu-sparse': {
+            inputDim: 20,
+            hiddenDim: 5,
+            importance: 0.7,
+            sparsity: '0.999',  // 1-S = 0.001
+            activation: 'relu'
+        }
+    };
+    
+    document.querySelectorAll('.preset-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const presetName = card.dataset.preset;
+            const preset = presets[presetName];
+            
+            // Update all the controls
+            document.getElementById('input-dim').value = preset.inputDim;
+            document.getElementById('input-dim-display').textContent = preset.inputDim;
+            
+            document.getElementById('hidden-dim').value = preset.hiddenDim;
+            document.getElementById('hidden-dim-display').textContent = preset.hiddenDim;
+            
+            document.getElementById('importance').value = preset.importance;
+            document.getElementById('importance-display').textContent = preset.importance.toFixed(2);
+            
+            document.getElementById('sparsity').value = preset.sparsity;
+            
+            // Update activation mode radio buttons
+            document.querySelectorAll('input[name="activation"]').forEach(radio => {
+                radio.checked = radio.value === preset.activation;
+            });
+            
+            // Update selected state
+            document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            currentPreset = presetName;
+            
+            // Update importance preview and reinitialize model
+            updateImportancePreview();
+            initializeModel();
+        });
+    });
+    
+    // Add listeners to all parameter controls to clear preset selection
+    const parameterControls = [
+        'input-dim', 'hidden-dim', 'importance', 'sparsity'
+    ];
+    parameterControls.forEach(id => {
+        document.getElementById(id).addEventListener('input', () => {
+            // Clear selected preset when user manually changes parameters
+            document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
+            currentPreset = null;
+        });
+    });
+    
+    document.querySelectorAll('input[name="activation"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            // Clear selected preset when user manually changes activation
+            document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
+            currentPreset = null;
+        });
     });
 }
 
