@@ -287,8 +287,8 @@ function updateWeightMatrix() {
     
     // Title
     ctx.font = '12px sans-serif';
-    ctx.fillText(`W^T W Gram Matrix (${n}×${n})`, startX, canvas.height - 5);
-    ctx.fillText(`Orthogonality: ${analysis.orthogonality.toFixed(3)}`, startX + 150, canvas.height - 5);
+    ctx.fillText(`W^T W Gram Matrix (${n}×${n})`, startX, canvas.height - 18);
+    ctx.fillText(`Orthogonality: ${analysis.orthogonality.toFixed(3)}`, startX, canvas.height - 5);
 }
 
 function updateFinalVisualization() {
