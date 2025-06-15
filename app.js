@@ -192,49 +192,93 @@ function updateWeightMatrix() {
     
     const canvas = document.getElementById('weight-canvas');
     const ctx = canvas.getContext('2d');
-    const W = model.getWeights();
     
-    const rows = W.length;
-    const cols = W[0].length;
+    // Get W^T W (Gram matrix)
+    const analysis = model.analyzeRepresentation();
+    const gramMatrix = analysis.gramMatrix;
+    const n = gramMatrix.length;
     
     canvas.width = canvas.offsetWidth;
     canvas.height = 250;
     
-    const cellWidth = Math.min(20, (canvas.width - 20) / cols);
-    const cellHeight = Math.min(20, (canvas.height - 20) / rows);
+    // Calculate cell size and plotting area
+    const legendWidth = 60;
+    const plotArea = canvas.width - legendWidth - 30;
+    const cellSize = Math.min(20, plotArea / n, (canvas.height - 40) / n);
+    const startX = 15;
+    const startY = 20;
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    // Find max absolute value for scaling
     let maxVal = 0;
-    for (let i = 0; i < rows; i++) {
-        for (let j = 0; j < cols; j++) {
-            maxVal = Math.max(maxVal, Math.abs(W[i][j]));
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+            maxVal = Math.max(maxVal, Math.abs(gramMatrix[i][j]));
         }
     }
+    maxVal = Math.max(maxVal, 1); // Ensure maxVal is at least 1
     
-    for (let i = 0; i < rows; i++) {
-        for (let j = 0; j < cols; j++) {
-            const value = W[i][j];
-            const intensity = Math.abs(value) / maxVal;
+    // Draw the matrix
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+            const value = gramMatrix[i][j];
+            const normalizedValue = value / maxVal;
             
-            if (value > 0) {
-                ctx.fillStyle = `rgba(52, 152, 219, ${intensity})`;
+            // Use a diverging color scheme
+            let r, g, b;
+            if (normalizedValue > 0) {
+                // Positive values: white to blue
+                r = 255 - Math.floor(normalizedValue * 203);
+                g = 255 - Math.floor(normalizedValue * 103);
+                b = 255;
             } else {
-                ctx.fillStyle = `rgba(231, 76, 60, ${intensity})`;
+                // Negative values: white to red
+                r = 255;
+                g = 255 + Math.floor(normalizedValue * 179);
+                b = 255 + Math.floor(normalizedValue * 195);
             }
             
+            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
             ctx.fillRect(
-                10 + j * cellWidth,
-                10 + i * cellHeight,
-                cellWidth - 1,
-                cellHeight - 1
+                startX + j * cellSize,
+                startY + i * cellSize,
+                cellSize - 1,
+                cellSize - 1
             );
         }
     }
     
+    // Draw color legend
+    const legendX = startX + n * cellSize + 20;
+    const legendHeight = Math.min(200, n * cellSize);
+    const legendY = startY;
+    
+    // Legend gradient
+    const gradient = ctx.createLinearGradient(0, legendY, 0, legendY + legendHeight);
+    gradient.addColorStop(0, 'rgb(52, 152, 255)');     // Blue (positive)
+    gradient.addColorStop(0.5, 'rgb(255, 255, 255)'); // White (zero)
+    gradient.addColorStop(1, 'rgb(255, 76, 60)');      // Red (negative)
+    
+    ctx.fillStyle = gradient;
+    ctx.fillRect(legendX, legendY, 20, legendHeight);
+    
+    // Legend border
+    ctx.strokeStyle = '#ccc';
+    ctx.strokeRect(legendX, legendY, 20, legendHeight);
+    
+    // Legend labels
     ctx.fillStyle = '#666';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${maxVal.toFixed(2)}`, legendX + 25, legendY + 5);
+    ctx.fillText('0.00', legendX + 25, legendY + legendHeight / 2 + 3);
+    ctx.fillText(`-${maxVal.toFixed(2)}`, legendX + 25, legendY + legendHeight);
+    
+    // Title
     ctx.font = '12px sans-serif';
-    ctx.fillText(`Weight Matrix (${rows}×${cols})`, 10, canvas.height - 5);
+    ctx.fillText(`W^T W Gram Matrix (${n}×${n})`, startX, canvas.height - 5);
+    ctx.fillText(`Orthogonality: ${analysis.orthogonality.toFixed(3)}`, startX + 150, canvas.height - 5);
 }
 
 function updateFinalVisualization() {
