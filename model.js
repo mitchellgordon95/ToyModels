@@ -47,8 +47,10 @@ class SuperpositionModel {
         // Add bias term
         x_reconstructed = Vector.add(x_reconstructed, this.bias);
         
-        // Apply ReLU to output (matching the paper)
-        x_reconstructed = Vector.relu(x_reconstructed);
+        // Apply ReLU to output only if in relu mode
+        if (this.activation === 'relu') {
+            x_reconstructed = Vector.relu(x_reconstructed);
+        }
         
         return { h, x_reconstructed };
     }
@@ -74,13 +76,18 @@ class SuperpositionModel {
         
         const loss = this.computeLoss(x, x_reconstructed, h, importanceVector);
         
-        // Gradient through ReLU on output
-        const relu_grad = x_reconstructed.map(val => val > 0 ? 1 : 0);
+        // Gradient through activation function (ReLU or linear)
+        let activation_grad;
+        if (this.activation === 'relu') {
+            activation_grad = x_reconstructed.map(val => val > 0 ? 1 : 0);
+        } else {
+            activation_grad = new Array(x.length).fill(1); // Linear: gradient is 1
+        }
         
         // Importance-weighted gradient
         const reconstruction_grad = [];
         for (let i = 0; i < x.length; i++) {
-            reconstruction_grad[i] = (2 * importanceVector[i] * (x_reconstructed[i] - x[i]) * relu_grad[i]) / x.length;
+            reconstruction_grad[i] = (2 * importanceVector[i] * (x_reconstructed[i] - x[i]) * activation_grad[i]) / x.length;
         }
         
         // Update bias gradient
@@ -271,50 +278,4 @@ class SuperpositionModel {
         };
     }
     
-    computeFeatureReconstructionQuality(testBatchSize = 500, sparsity = 0.1, importanceDecay = 0.9) {
-        const importanceVector = SuperpositionModel.computeImportanceVector(this.inputDim, importanceDecay);
-        const featureErrors = new Array(this.inputDim).fill(0);
-        const featureCounts = new Array(this.inputDim).fill(0);
-        
-        // Generate test batch and compute reconstruction errors
-        for (let i = 0; i < testBatchSize; i++) {
-            const x = Vector.sparse(this.inputDim, sparsity);
-            
-            // Normalize
-            const norm = Vector.norm(x);
-            if (norm > 0) {
-                for (let j = 0; j < x.length; j++) {
-                    x[j] /= norm;
-                }
-            }
-            
-            const { x_reconstructed } = this.forward(x);
-            
-            // Track error for each active feature
-            for (let j = 0; j < this.inputDim; j++) {
-                if (x[j] > 0) {  // Feature was active
-                    const error = Math.abs(x[j] - x_reconstructed[j]);
-                    featureErrors[j] += error;
-                    featureCounts[j]++;
-                }
-            }
-        }
-        
-        // Compute average reconstruction quality per feature
-        const qualities = new Array(this.inputDim);
-        for (let i = 0; i < this.inputDim; i++) {
-            if (featureCounts[i] > 0) {
-                const avgError = featureErrors[i] / featureCounts[i];
-                qualities[i] = Math.max(0, 1 - avgError);  // Convert error to quality
-            } else {
-                qualities[i] = 0;  // No data for this feature
-            }
-        }
-        
-        return {
-            qualities,
-            importanceVector,
-            featureCounts
-        };
-    }
 }

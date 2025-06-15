@@ -134,9 +134,7 @@ function updateTrainingProgress({ step, loss, learningRate, converged }) {
     if (step % 50 === 0) {
         updateLossPlot();
         updateWeightMatrix();
-        if (step % 200 === 0) {  // Less frequent for performance
-            updateReconstructionQuality();
-        }
+        updateSuperpositionPlot();  // Update every 50 steps
     }
 }
 
@@ -156,7 +154,7 @@ function disableParameterControls(disabled) {
 }
 
 function clearVisualizations() {
-    const canvases = ['weight-canvas', 'reconstruction-canvas', 'loss-canvas'];
+    const canvases = ['weight-canvas', 'superposition-canvas', 'loss-canvas'];
     canvases.forEach(id => {
         const canvas = document.getElementById(id);
         const ctx = canvas.getContext('2d');
@@ -374,70 +372,104 @@ function updateWeightMatrix() {
     ctx.fillText('Bias', biasStartX + biasPlotWidth/2, canvas.height - 5);
 }
 
-function updateReconstructionQuality() {
+function updateSuperpositionPlot() {
     if (!model) return;
     
-    const canvas = document.getElementById('reconstruction-canvas');
+    const canvas = document.getElementById('superposition-canvas');
     const ctx = canvas.getContext('2d');
     
-    const sparsity = parseFloat(document.getElementById('sparsity').value);
-    const importanceDecay = parseFloat(document.getElementById('importance').value);
-    
-    // Compute reconstruction quality for each feature
-    const { qualities, importanceVector, featureCounts } = 
-        model.computeFeatureReconstructionQuality(500, sparsity, importanceDecay);
-    
-    const n = qualities.length;
+    const W = model.getWeights();
+    const m = W.length;     // hidden dim
+    const n = W[0].length;  // input dim
     
     canvas.width = canvas.offsetWidth;
     canvas.height = 250;
     
-    const margin = { top: 20, right: 20, bottom: 40, left: 50 };
+    const margin = { top: 40, right: 120, bottom: 30, left: 40 };  // Increased top and right margins
     const width = canvas.width - margin.left - margin.right;
     const height = canvas.height - margin.top - margin.bottom;
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Create feature indices sorted by importance
-    const indices = Array.from({length: n}, (_, i) => i);
-    indices.sort((a, b) => importanceVector[b] - importanceVector[a]);
+    // Calculate norms and interference for each feature
+    const featureData = [];
+    for (let i = 0; i < n; i++) {
+        // Extract column i from W (feature i's representation)
+        const W_i = [];
+        for (let j = 0; j < m; j++) {
+            W_i.push(W[j][i]);
+        }
+        
+        // Calculate norm
+        const norm = Math.sqrt(W_i.reduce((sum, val) => sum + val * val, 0));
+        
+        // Calculate interference (superposition)
+        let interference = 0;
+        if (norm > 1e-6) {
+            // Normalize W_i
+            const W_i_hat = W_i.map(val => val / norm);
+            
+            // For each other feature j
+            for (let j = 0; j < n; j++) {
+                if (i !== j) {
+                    // Extract column j from W
+                    const W_j = [];
+                    for (let k = 0; k < m; k++) {
+                        W_j.push(W[k][j]);
+                    }
+                    
+                    // Compute dot product
+                    let dot = 0;
+                    for (let k = 0; k < m; k++) {
+                        dot += W_i_hat[k] * W_j[k];
+                    }
+                    
+                    interference += dot * dot;
+                }
+            }
+        }
+        
+        featureData.push({ index: i, norm: norm, interference: interference });
+    }
+    
+    // Find max norm for scaling
+    const maxNorm = Math.max(...featureData.map(d => d.norm));
     
     // Draw bars
-    const barWidth = Math.max(1, width / n - 1);
-    const maxQuality = 1;
+    const barHeight = Math.max(1, height / n - 1);
     
     for (let i = 0; i < n; i++) {
-        const featureIdx = indices[i];
-        const quality = qualities[featureIdx];
-        const importance = importanceVector[featureIdx];
+        const data = featureData[i];
+        const barWidth = (data.norm / maxNorm) * width;
         
-        // Bar height
-        const barHeight = quality * height;
+        // Clip interference to [0, 1] for color mapping
+        const colorValue = Math.min(1, data.interference);
         
-        // Color based on importance (gradient from blue to light gray)
-        const colorIntensity = importance;
-        const r = Math.floor(200 - colorIntensity * 150);
-        const g = Math.floor(200 - colorIntensity * 100);
-        const b = Math.floor(200 + colorIntensity * 55);
+        // Black to yellow gradient
+        const r = Math.floor(colorValue * 255);
+        const g = Math.floor(colorValue * 255);
+        const b = 0;
         
         ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
         ctx.fillRect(
-            margin.left + i * (width / n),
-            margin.top + height - barHeight,
+            margin.left,
+            margin.top + i * (height / n),
             barWidth,
             barHeight
         );
+        
+        // Feature index label
+        if (n <= 30 || i % Math.ceil(n/30) === 0) {
+            ctx.fillStyle = '#666';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(`${i}`, margin.left - 3, margin.top + i * (height / n) + barHeight/2 + 3);
+        }
     }
     
     // Draw axes
     ctx.strokeStyle = '#666';
     ctx.lineWidth = 1;
-    
-    // Y-axis
-    ctx.beginPath();
-    ctx.moveTo(margin.left, margin.top);
-    ctx.lineTo(margin.left, margin.top + height);
-    ctx.stroke();
     
     // X-axis
     ctx.beginPath();
@@ -445,43 +477,54 @@ function updateReconstructionQuality() {
     ctx.lineTo(margin.left + width, margin.top + height);
     ctx.stroke();
     
-    // Y-axis labels
+    // Y-axis
+    ctx.beginPath();
+    ctx.moveTo(margin.left, margin.top);
+    ctx.lineTo(margin.left, margin.top + height);
+    ctx.stroke();
+    
+    // X-axis labels
     ctx.fillStyle = '#666';
     ctx.font = '11px sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText('1.0', margin.left - 5, margin.top + 5);
-    ctx.fillText('0.5', margin.left - 5, margin.top + height/2 + 5);
-    ctx.fillText('0.0', margin.left - 5, margin.top + height + 5);
-    
-    // Title and labels
-    ctx.font = '12px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Features (sorted by importance)', canvas.width / 2, canvas.height - 10);
+    ctx.fillText('0', margin.left, margin.top + height + 15);
+    ctx.fillText(maxNorm.toFixed(2), margin.left + width, margin.top + height + 15);
     
-    ctx.save();
-    ctx.translate(15, canvas.height / 2);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillText('Reconstruction Quality', 0, 0);
-    ctx.restore();
+    // Title
+    ctx.font = '12px sans-serif';
+    ctx.fillText('||W_i|| (feature magnitude)', canvas.width / 2, canvas.height - 5);
     
-    // Legend
+    // Color legend - positioned in the right margin area
+    const legendX = margin.left + width + 20;
+    const legendY = margin.top;
+    const legendWidth = 80;
+    const legendHeight = 15;
+    
+    // Create gradient
+    const gradient = ctx.createLinearGradient(legendX, 0, legendX + legendWidth, 0);
+    gradient.addColorStop(0, 'rgb(0, 0, 0)');     // Black (no interference)
+    gradient.addColorStop(1, 'rgb(255, 255, 0)'); // Yellow (high interference)
+    
+    ctx.fillStyle = gradient;
+    ctx.fillRect(legendX, legendY, legendWidth, legendHeight);
+    
+    ctx.strokeStyle = '#ccc';
+    ctx.strokeRect(legendX, legendY, legendWidth, legendHeight);
+    
+    ctx.fillStyle = '#666';
     ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Superposition', legendX + legendWidth/2, legendY + legendHeight + 12);
     ctx.textAlign = 'left';
-    ctx.fillStyle = 'rgb(50, 100, 255)';
-    ctx.fillRect(canvas.width - 100, 10, 15, 10);
-    ctx.fillStyle = '#666';
-    ctx.fillText('High importance', canvas.width - 80, 19);
-    
-    ctx.fillStyle = 'rgb(200, 200, 200)';
-    ctx.fillRect(canvas.width - 100, 25, 15, 10);
-    ctx.fillStyle = '#666';
-    ctx.fillText('Low importance', canvas.width - 80, 34);
+    ctx.fillText('0', legendX, legendY - 3);
+    ctx.textAlign = 'right';
+    ctx.fillText('1+', legendX + legendWidth, legendY - 3);
 }
 
 function updateFinalVisualization() {
     updateWeightMatrix();
     updateLossPlot();
-    updateReconstructionQuality();
+    updateSuperpositionPlot();
     
     const analysis = model.analyzeRepresentation();
     console.log('Model analysis:', analysis);
