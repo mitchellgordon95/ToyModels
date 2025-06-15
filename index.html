@@ -67,8 +67,8 @@
                     </div>
                     
                     <div class="control-group">
-                        <label for="epochs">Epochs:</label>
-                        <input type="number" id="epochs" min="100" max="20000" value="5000">
+                        <label for="steps">Training Steps:</label>
+                        <input type="number" id="steps" min="100" max="20000" value="10000">
                     </div>
                     
                     <div class="control-group">
@@ -80,13 +80,16 @@
                         </select>
                     </div>
                     
-                    <div class="help-text">Optimizer: AdamW (β₁=0.9, β₂=0.999, weight decay=0.0001)</div>
+                    <div class="help-text">
+                        Optimizer: AdamW (β₁=0.9, β₂=0.999, weight decay=0.0001)<br>
+                        Weight Initialization: Xavier/Glorot Normal
+                    </div>
                 </div>
             </details>
             
             <div class="training-status">
                 <h3>Training Status</h3>
-                <div>Epoch: <span id="epoch">0</span></div>
+                <div>Step: <span id="step">0</span></div>
                 <div>Loss: <span id="loss">-</span></div>
                 <div>Status: <span id="status">Ready</span></div>
             </div>

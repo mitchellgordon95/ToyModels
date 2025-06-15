@@ -162,20 +162,20 @@ class SuperpositionModel {
         for (const x of batch) {
             const loss = this.backward(x, learningRate, importanceVector);
             totalLoss += loss.total;
-            this.totalSteps++;
         }
+        
+        this.totalSteps++;
         
         return totalLoss / batch.length;
     }
     
     async train(params = {}) {
         const {
-            epochs = 1000,
+            steps = 10000,
             batchSize = 1024,
             learningRate = 1e-3,
             lrSchedule = 'constant',  // 'constant', 'linear', or 'cosine'
             sparsity = 0.1,
-            sparsityWeight = 0.0,
             importance = 1.0,
             convergenceThreshold = 1e-5,
             callback = null
@@ -189,12 +189,12 @@ class SuperpositionModel {
         let convergenceCount = 0;
         let currentLearningRate = learningRate;
         
-        for (let epoch = 0; epoch < epochs && this.isTraining; epoch++) {
+        for (let step = 0; step < steps && this.isTraining; step++) {
             // Learning rate scheduling
             if (lrSchedule === 'linear') {
-                currentLearningRate = learningRate * (1 - epoch / epochs);
+                currentLearningRate = learningRate * (1 - step / steps);
             } else if (lrSchedule === 'cosine') {
-                currentLearningRate = learningRate * Math.cos(0.5 * Math.PI * epoch / (epochs - 1));
+                currentLearningRate = learningRate * Math.cos(0.5 * Math.PI * step / (steps - 1));
             } else {
                 currentLearningRate = learningRate;  // constant
             }
@@ -210,7 +210,7 @@ class SuperpositionModel {
             if (relativeLossChange < convergenceThreshold) {
                 convergenceCount++;
                 if (convergenceCount > 20) {
-                    console.log(`Converged at epoch ${epoch}`);
+                    console.log(`Converged at step ${step}`);
                     break;
                 }
             } else {
@@ -219,9 +219,9 @@ class SuperpositionModel {
             
             previousLoss = loss;
             
-            if (callback && epoch % 10 === 0) {
+            if (callback && step % 10 === 0) {
                 callback({
-                    epoch,
+                    step,
                     loss,
                     learningRate: currentLearningRate,
                     converged: convergenceCount > 20
@@ -235,7 +235,7 @@ class SuperpositionModel {
         
         return {
             finalLoss: previousLoss,
-            epochs: this.lossHistory.length,
+            steps: this.lossHistory.length,
             converged: convergenceCount > 20
         };
     }

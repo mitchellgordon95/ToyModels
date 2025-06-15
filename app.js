@@ -75,13 +75,13 @@ async function startTraining() {
     // Get values from More Settings
     const learningRate = parseFloat(document.getElementById('learning-rate').value);
     const batchSize = parseInt(document.getElementById('batch-size').value);
-    const epochs = parseInt(document.getElementById('epochs').value);
+    const steps = parseInt(document.getElementById('steps').value);
     const lrSchedule = document.getElementById('lr-schedule').value;
     
     updateStatus('Training...');
     
     const trainingParams = {
-        epochs: epochs,
+        steps: steps,
         batchSize: batchSize,
         learningRate: learningRate,
         lrSchedule: lrSchedule,
@@ -124,8 +124,8 @@ function stopTraining() {
     updateStatus('Training stopped');
 }
 
-function updateTrainingProgress({ epoch, loss, learningRate, converged }) {
-    document.getElementById('epoch').textContent = epoch;
+function updateTrainingProgress({ step, loss, learningRate, converged }) {
+    document.getElementById('step').textContent = step;
     document.getElementById('loss').textContent = loss.toExponential(3);
     
     // Update status with learning rate info
@@ -133,7 +133,7 @@ function updateTrainingProgress({ epoch, loss, learningRate, converged }) {
         updateStatus(`Training... (LR: ${learningRate.toExponential(2)})`);
     }
     
-    if (epoch % 50 === 0) {
+    if (step % 50 === 0) {
         updateLossPlot();
         updateWeightMatrix();
     }
@@ -146,7 +146,7 @@ function updateStatus(message) {
 function disableParameterControls(disabled) {
     const controls = [
         'input-dim', 'hidden-dim', 'linear-mode', 'relu-mode',
-        'learning-rate', 'batch-size', 'epochs', 'lr-schedule'
+        'learning-rate', 'batch-size', 'steps', 'lr-schedule'
     ];
     
     controls.forEach(id => {
@@ -199,7 +199,7 @@ function updateLossPlot() {
     ctx.font = '12px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(`Loss: ${minLoss.toExponential(2)} - ${maxLoss.toExponential(2)}`, 10, 15);
-    ctx.fillText(`Epochs: ${losses.length}`, width - 100, 15);
+    ctx.fillText(`Steps: ${losses.length}`, width - 100, 15);
 }
 
 function updateWeightMatrix() {
