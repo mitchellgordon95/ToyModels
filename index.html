@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Toy Model of Superposition</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Toy Model of Superposition</h1>
+        
+        <div class="controls-panel">
+            <h2>Model Parameters</h2>
+            
+            <div class="control-group">
+                <label for="input-dim">Input Dimension (n):</label>
+                <input type="number" id="input-dim" min="2" max="100" value="10">
+                <span class="value-display" id="input-dim-display">10</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="hidden-dim">Hidden Dimension (m):</label>
+                <input type="number" id="hidden-dim" min="1" max="100" value="5">
+                <span class="value-display" id="hidden-dim-display">5</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="sparsity">Sparsity (S):</label>
+                <input type="range" id="sparsity" min="0" max="1" step="0.01" value="0.1">
+                <span class="value-display" id="sparsity-display">0.10</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="importance">Feature Importance (I):</label>
+                <input type="range" id="importance" min="0" max="1" step="0.01" value="0.5">
+                <span class="value-display" id="importance-display">0.50</span>
+            </div>
+            
+            <div class="control-group">
+                <label>Activation Mode:</label>
+                <div class="radio-group">
+                    <input type="radio" id="linear-mode" name="activation" value="linear" checked>
+                    <label for="linear-mode">Linear</label>
+                    <input type="radio" id="relu-mode" name="activation" value="relu">
+                    <label for="relu-mode">ReLU</label>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <button id="train-btn" class="primary-btn">Train Model</button>
+                <button id="stop-btn" class="secondary-btn" disabled>Stop Training</button>
+            </div>
+            
+            <div class="training-status">
+                <h3>Training Status</h3>
+                <div>Epoch: <span id="epoch">0</span></div>
+                <div>Loss: <span id="loss">-</span></div>
+                <div>Status: <span id="status">Ready</span></div>
+            </div>
+        </div>
+        
+        <div class="visualization-panel">
+            <h2>Visualizations</h2>
+            
+            <div class="viz-placeholder" id="weight-matrix-viz">
+                <h3>Weight Matrix W</h3>
+                <canvas id="weight-canvas"></canvas>
+            </div>
+            
+            <div class="viz-placeholder" id="reconstruction-viz">
+                <h3>Reconstruction Quality</h3>
+                <canvas id="reconstruction-canvas"></canvas>
+            </div>
+            
+            <div class="viz-placeholder" id="feature-viz">
+                <h3>Feature Activations</h3>
+                <canvas id="feature-canvas"></canvas>
+            </div>
+            
+            <div class="viz-placeholder" id="loss-curve-viz">
+                <h3>Training Loss</h3>
+                <canvas id="loss-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <script src="matrix.js"></script>
+    <script src="model.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
