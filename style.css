@@ -59,7 +59,8 @@ h3 {
 }
 
 .control-group input[type="number"],
-.control-group input[type="range"] {
+.control-group input[type="range"],
+.control-group select {
     width: 100%;
     padding: 8px;
     border: 1px solid #ddd;

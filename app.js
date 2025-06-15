@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
 function setupControls() {
     const inputDimSlider = document.getElementById('input-dim');
     const hiddenDimSlider = document.getElementById('hidden-dim');
-    const sparsitySlider = document.getElementById('sparsity');
     const importanceSlider = document.getElementById('importance');
     
     inputDimSlider.addEventListener('input', (e) => {
@@ -26,10 +25,6 @@ function setupControls() {
     
     hiddenDimSlider.addEventListener('input', (e) => {
         document.getElementById('hidden-dim-display').textContent = e.target.value;
-    });
-    
-    sparsitySlider.addEventListener('input', (e) => {
-        document.getElementById('sparsity-display').textContent = parseFloat(e.target.value).toFixed(2);
     });
     
     importanceSlider.addEventListener('input', (e) => {
@@ -62,6 +57,9 @@ function initializeModel() {
 
 async function startTraining() {
     if (isTraining) return;
+    
+    // Reinitialize the model with fresh weights
+    initializeModel();
     
     isTraining = true;
     document.getElementById('train-btn').disabled = true;
@@ -136,6 +134,9 @@ function updateTrainingProgress({ step, loss, learningRate, converged }) {
     if (step % 50 === 0) {
         updateLossPlot();
         updateWeightMatrix();
+        if (step % 200 === 0) {  // Less frequent for performance
+            updateReconstructionQuality();
+        }
     }
 }
 
@@ -155,7 +156,7 @@ function disableParameterControls(disabled) {
 }
 
 function clearVisualizations() {
-    const canvases = ['weight-canvas', 'reconstruction-canvas', 'feature-canvas', 'loss-canvas'];
+    const canvases = ['weight-canvas', 'reconstruction-canvas', 'loss-canvas'];
     canvases.forEach(id => {
         const canvas = document.getElementById(id);
         const ctx = canvas.getContext('2d');
@@ -208,18 +209,25 @@ function updateWeightMatrix() {
     const canvas = document.getElementById('weight-canvas');
     const ctx = canvas.getContext('2d');
     
-    // Get W^T W (Gram matrix)
+    // Get W^T W (Gram matrix) and bias
     const analysis = model.analyzeRepresentation();
     const gramMatrix = analysis.gramMatrix;
+    const bias = model.bias;
     const n = gramMatrix.length;
     
     canvas.width = canvas.offsetWidth;
     canvas.height = 250;
     
-    // Calculate cell size and plotting area
-    const legendWidth = 60;
-    const plotArea = canvas.width - legendWidth - 30;
-    const cellSize = Math.min(20, plotArea / n, (canvas.height - 40) / n);
+    // Calculate dimensions for both visualizations
+    const totalWidth = canvas.width;
+    const matrixWidth = Math.floor(totalWidth * 0.6); // 60% for matrix
+    const biasWidth = Math.floor(totalWidth * 0.3); // 30% for bias
+    const gap = 20; // gap between visualizations
+    
+    // Matrix dimensions
+    const legendWidth = 50;
+    const matrixPlotArea = matrixWidth - legendWidth - 20;
+    const cellSize = Math.min(15, matrixPlotArea / n, (canvas.height - 40) / n);
     const startX = 15;
     const startY = 20;
     
@@ -269,7 +277,7 @@ function updateWeightMatrix() {
     const legendHeight = Math.min(200, n * cellSize);
     const legendY = startY;
     
-    // Legend gradient
+    // Legend gradient for W^T W
     const gradient = ctx.createLinearGradient(0, legendY, 0, legendY + legendHeight);
     gradient.addColorStop(0, 'rgb(52, 152, 255)');     // Blue (positive)
     gradient.addColorStop(0.5, 'rgb(255, 255, 255)'); // White (zero)
@@ -290,15 +298,190 @@ function updateWeightMatrix() {
     ctx.fillText('0.00', legendX + 25, legendY + legendHeight / 2 + 3);
     ctx.fillText(`-${maxVal.toFixed(2)}`, legendX + 25, legendY + legendHeight);
     
-    // Title
+    // Title for matrix
     ctx.font = '12px sans-serif';
-    ctx.fillText(`W^T W Gram Matrix (${n}×${n})`, startX, canvas.height - 18);
+    ctx.fillText(`W^T W (${n}×${n})`, startX, canvas.height - 18);
     ctx.fillText(`Orthogonality: ${analysis.orthogonality.toFixed(3)}`, startX, canvas.height - 5);
+    
+    // Draw bias visualization
+    const biasStartX = matrixWidth + gap;
+    const biasPlotWidth = biasWidth - 80; // Leave space for scale
+    
+    // Find max bias value for scaling
+    let maxBias = 0;
+    for (let i = 0; i < n; i++) {
+        maxBias = Math.max(maxBias, Math.abs(bias[i]));
+    }
+    maxBias = Math.max(maxBias, 0.01); // Ensure minimum scale
+    
+    // Draw bias heatmap
+    for (let i = 0; i < n; i++) {
+        const biasValue = bias[i];
+        const normalizedBias = biasValue / maxBias;
+        
+        // Color gradient from orange (negative) to white (zero) to green (positive)
+        let r, g, b;
+        if (normalizedBias > 0) {
+            // Positive: white to green
+            r = 255 - Math.floor(normalizedBias * 155);
+            g = 255 - Math.floor(normalizedBias * 55);
+            b = 255 - Math.floor(normalizedBias * 155);
+        } else {
+            // Negative: white to orange
+            r = 255;
+            g = 255 + Math.floor(normalizedBias * 90);
+            b = 255 + Math.floor(normalizedBias * 180);
+        }
+        
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(
+            biasStartX,
+            startY + i * cellSize,
+            biasPlotWidth,
+            cellSize - 1
+        );
+    }
+    
+    // Bias color scale
+    const biasScaleX = biasStartX + biasPlotWidth + 10;
+    const biasScaleWidth = 20;
+    const biasScaleHeight = Math.min(200, n * cellSize);
+    
+    // Create gradient for bias
+    const biasGradient = ctx.createLinearGradient(0, startY, 0, startY + biasScaleHeight);
+    biasGradient.addColorStop(0, 'rgb(100, 200, 100)');     // Green (positive)
+    biasGradient.addColorStop(0.5, 'rgb(255, 255, 255)');   // White (zero)
+    biasGradient.addColorStop(1, 'rgb(255, 165, 75)');      // Orange (negative)
+    
+    ctx.fillStyle = biasGradient;
+    ctx.fillRect(biasScaleX, startY, biasScaleWidth, biasScaleHeight);
+    
+    // Bias scale border
+    ctx.strokeStyle = '#ccc';
+    ctx.strokeRect(biasScaleX, startY, biasScaleWidth, biasScaleHeight);
+    
+    // Bias scale labels
+    ctx.fillStyle = '#666';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`+${maxBias.toFixed(3)}`, biasScaleX + biasScaleWidth + 5, startY + 5);
+    ctx.fillText('0', biasScaleX + biasScaleWidth + 5, startY + biasScaleHeight/2 + 3);
+    ctx.fillText(`-${maxBias.toFixed(3)}`, biasScaleX + biasScaleWidth + 5, startY + biasScaleHeight);
+    
+    // Bias title
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Bias', biasStartX + biasPlotWidth/2, canvas.height - 5);
+}
+
+function updateReconstructionQuality() {
+    if (!model) return;
+    
+    const canvas = document.getElementById('reconstruction-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    const sparsity = parseFloat(document.getElementById('sparsity').value);
+    const importanceDecay = parseFloat(document.getElementById('importance').value);
+    
+    // Compute reconstruction quality for each feature
+    const { qualities, importanceVector, featureCounts } = 
+        model.computeFeatureReconstructionQuality(500, sparsity, importanceDecay);
+    
+    const n = qualities.length;
+    
+    canvas.width = canvas.offsetWidth;
+    canvas.height = 250;
+    
+    const margin = { top: 20, right: 20, bottom: 40, left: 50 };
+    const width = canvas.width - margin.left - margin.right;
+    const height = canvas.height - margin.top - margin.bottom;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Create feature indices sorted by importance
+    const indices = Array.from({length: n}, (_, i) => i);
+    indices.sort((a, b) => importanceVector[b] - importanceVector[a]);
+    
+    // Draw bars
+    const barWidth = Math.max(1, width / n - 1);
+    const maxQuality = 1;
+    
+    for (let i = 0; i < n; i++) {
+        const featureIdx = indices[i];
+        const quality = qualities[featureIdx];
+        const importance = importanceVector[featureIdx];
+        
+        // Bar height
+        const barHeight = quality * height;
+        
+        // Color based on importance (gradient from blue to light gray)
+        const colorIntensity = importance;
+        const r = Math.floor(200 - colorIntensity * 150);
+        const g = Math.floor(200 - colorIntensity * 100);
+        const b = Math.floor(200 + colorIntensity * 55);
+        
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(
+            margin.left + i * (width / n),
+            margin.top + height - barHeight,
+            barWidth,
+            barHeight
+        );
+    }
+    
+    // Draw axes
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1;
+    
+    // Y-axis
+    ctx.beginPath();
+    ctx.moveTo(margin.left, margin.top);
+    ctx.lineTo(margin.left, margin.top + height);
+    ctx.stroke();
+    
+    // X-axis
+    ctx.beginPath();
+    ctx.moveTo(margin.left, margin.top + height);
+    ctx.lineTo(margin.left + width, margin.top + height);
+    ctx.stroke();
+    
+    // Y-axis labels
+    ctx.fillStyle = '#666';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('1.0', margin.left - 5, margin.top + 5);
+    ctx.fillText('0.5', margin.left - 5, margin.top + height/2 + 5);
+    ctx.fillText('0.0', margin.left - 5, margin.top + height + 5);
+    
+    // Title and labels
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Features (sorted by importance)', canvas.width / 2, canvas.height - 10);
+    
+    ctx.save();
+    ctx.translate(15, canvas.height / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Reconstruction Quality', 0, 0);
+    ctx.restore();
+    
+    // Legend
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgb(50, 100, 255)';
+    ctx.fillRect(canvas.width - 100, 10, 15, 10);
+    ctx.fillStyle = '#666';
+    ctx.fillText('High importance', canvas.width - 80, 19);
+    
+    ctx.fillStyle = 'rgb(200, 200, 200)';
+    ctx.fillRect(canvas.width - 100, 25, 15, 10);
+    ctx.fillStyle = '#666';
+    ctx.fillText('Low importance', canvas.width - 80, 34);
 }
 
 function updateFinalVisualization() {
     updateWeightMatrix();
     updateLossPlot();
+    updateReconstructionQuality();
     
     const analysis = model.analyzeRepresentation();
     console.log('Model analysis:', analysis);

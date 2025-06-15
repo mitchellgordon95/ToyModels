@@ -26,9 +26,17 @@
             </div>
             
             <div class="control-group">
-                <label for="sparsity">Sparsity (S):</label>
-                <input type="range" id="sparsity" min="0" max="1" step="0.01" value="0.5">
-                <span class="value-display" id="sparsity-display">0.50</span>
+                <label for="sparsity">Feature Probability (1−S):</label>
+                <select id="sparsity">
+                    <option value="0">1</option>
+                    <option value="0.7">0.3</option>
+                    <option value="0.9" selected>0.1</option>
+                    <option value="0.97">0.03</option>
+                    <option value="0.99">0.01</option>
+                    <option value="0.997">0.003</option>
+                    <option value="0.999">0.001</option>
+                </select>
+                <div class="help-text">Fraction of features that are non-zero in each sample</div>
             </div>
             
             <div class="control-group">
@@ -104,18 +112,13 @@
             <h2>Visualizations</h2>
             
             <div class="viz-placeholder" id="weight-matrix-viz">
-                <h3>Weight Matrix W</h3>
+                <h3>Weight Matrix W^T W and Bias Terms</h3>
                 <canvas id="weight-canvas"></canvas>
             </div>
             
             <div class="viz-placeholder" id="reconstruction-viz">
                 <h3>Reconstruction Quality</h3>
                 <canvas id="reconstruction-canvas"></canvas>
-            </div>
-            
-            <div class="viz-placeholder" id="feature-viz">
-                <h3>Feature Activations</h3>
-                <canvas id="feature-canvas"></canvas>
             </div>
             
             <div class="viz-placeholder" id="loss-curve-viz">
