@@ -20,11 +20,32 @@ body {
     gap: 30px;
 }
 
-h1 {
+.header {
     grid-column: 1 / -1;
     text-align: center;
-    color: #2c3e50;
     margin-bottom: 20px;
+}
+
+h1 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    color: #7f8c8d;
+    font-size: 14px;
+    margin: 0;
+}
+
+.subtitle a {
+    color: #3498db;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+}
+
+.subtitle a:hover {
+    border-bottom-color: #3498db;
 }
 
 h2 {
@@ -261,10 +282,13 @@ h3 {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
+    grid-auto-rows: min-content;
 }
 
 .visualization-panel h2 {
     grid-column: 1 / -1;
+    margin: 0 0 10px 0;
+    height: auto;
 }
 
 .viz-placeholder {
